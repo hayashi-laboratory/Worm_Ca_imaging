@@ -16,7 +16,9 @@ Input data
 3. Wait for calculation  
 
 ## Outputs  
-Analyzed_yyyy_mm_dd  
+![スクリーンショット 2021-03-31 23 03 32](https://user-images.githubusercontent.com/59829168/113156954-6c419b80-9275-11eb-84b9-41ed40215095.png)
+
+
 ---  
 ## Licence  
 [MIT]  
