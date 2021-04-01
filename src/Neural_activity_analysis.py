@@ -326,10 +326,10 @@ def position_of_neurons(dataframe_list, folderpath, filename):
         ID = tempdataframe.iloc[0]["TRACK_ID"]
         text = "ID{}".format(ID)
         draw = ImageDraw.Draw(img)
-        font = ImageFont.truetype("C:/Windows/WinSxS/amd64_microsoft" \
-                                  "-windows-font-truetype-arial_" \
-                                  "31bf3856ad364e35_10.0.18362.1_"\
-                                      "none_44e0e02b2a9382cc/arial.ttf", 14)
+        font = ImageFont.truetype("C:/Windows/WinSxS/amd64_microsoft"\
+                                  "-windows-font-truetype-arial_"\
+                                  "31bf3856ad364e35_10.0.18362.1"\
+                                  "_none_44e0e02b2a9382cc/arial.ttf", 14)
         #font = ImageFont.truetype("/Library/Fonts/Microsoft/Arial.ttf")
         neuron_position = (int(position[0]/correct_value),
                            int(position[1]/correct_value))
@@ -363,8 +363,8 @@ def active_bout_analysis(dataframe_list,activity):
     # calculate statistics 
     mean = float(np.mean(locomotion_data))
     std = float(np.std(locomotion_data))
-    # locomotion is defined as movement is larger than 3 sd
-    locomotion_bool = np.where(locomotion_data>mean+3*std, True, False)
+    # locomotion is defined as movement is larger than 0.3 um
+    locomotion_bool = np.where(locomotion_data>0.3, True, False)
     np.savetxt('./datas/Locomotor_bool.csv', locomotion_bool)
     # analysis_start_time = 10 means first 10sec data is not used in analysis
     analysis_start_time = 10
@@ -385,7 +385,9 @@ def active_bout_analysis(dataframe_list,activity):
         # mask with bool (extract 3 sd movement timepoints)
         movement_timepoints = time[locomotion_bool]
         #quiescent bout analysis
-        if movement_timepoints[0] > 40:
+        if len(movement_timepoints) == 0:
+            pass
+        elif movement_timepoints[0] > 40:
             q_start = movement_timepoints[0]-30
             q_data_extraction_mask = np.where((time>q_start) & (time<movement_timepoints[0]), True, False)
             q_extracted_data = tempdataframe["deltaF/F"].values[q_data_extraction_mask]
