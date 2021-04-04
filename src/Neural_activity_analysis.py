@@ -10,10 +10,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 import itertools
 import datetime
+from PIL import Image, ImageDraw, ImageFont
 
 from tkinter import filedialog
 import tkinter 
 from tkinter import messagebox
+
+
+
+####variables####
+
+# max_datalength: analyzed data length
+max_datalength = 1800
+
+# spatial correction 
+correct_value = 0.614
+
+# font directory
+"""font = ImageFont.truetype("C:/Windows/WinSxS/amd64_microsoft"\
+                                  "-windows-font-truetype-arial_"\
+                                  "31bf3856ad364e35_10.0.18362.1"\
+                                  "_none_44e0e02b2a9382cc/arial.ttf", 14)"""
+font = ImageFont.truetype("/Library/Fonts/Microsoft/Arial.ttf")
 
 
 #####functions#####
@@ -42,11 +60,6 @@ def makedirs(filename):
     os.makedirs('./datas/rawdata', exist_ok = True)
     os.makedirs('./datas/FFT_data', exist_ok = True)
     os.makedirs('./figures', exist_ok = True)
-
-#get variables
-def ask_variables():
-    max_datalength = 1800#int(input("max data length: "))
-    return max_datalength
 
 #csv file read
 def csv_file_read(filepath):
@@ -99,12 +112,15 @@ def calc_fluo(dataframe_list):
         temp_dataframe["deltaF/F"] = temp_dataframe["delta_GFP"] / temp_dataframe["MEAN_INTENSITY02"]
         temp_dataframe.to_csv('./datas/rawdata/Track_ID{}.csv'.format(ID))
         Fluo_data.append(temp_dataframe[["FRAME", "deltaF/F"]])
-        only_Fluo_data.append(temp_dataframe[["deltaF/F"]])
+        only_Fluo_data.append(np.squeeze(temp_dataframe[["deltaF/F"]]))
         # add fluo data to correlation list
         data_for_correlation.append(np.squeeze(temp_dataframe[["deltaF/F"]].values))
     # make dataframe
     df_for_correlation = pd.DataFrame(np.array(data_for_correlation).T, columns = ID_list)
     
+    # save all fluo data
+    All_fluo_df = pd.DataFrame(np.asarray(only_Fluo_data).T)
+    All_fluo_df.to_csv("./datas/all_fluo.csv")
     return Fluo_data, only_Fluo_data, df_for_correlation
 
 
@@ -292,13 +308,13 @@ def draw_heatmap(a, timeaxis, NeuroID, cmap=plt.cm.jet):
     
 def activity_analysis(dataframe_list, Hz, max_datalength):
     neuronNum = len(dataframe_list)
-    activity_list = []
+    activity_list_av = []
     for i in range(neuronNum):
-        temp_activity = []
         position_np = np.asarray(dataframe_list[i].loc[:,"POSITION_X":"POSITION_Z"])
         distance_np = np.sqrt(np.sum(np.square(np.diff(position_np, axis=0)), 1))
-        np.asarray(activity_list.append(distance_np))
-    activity = np.mean(np.asarray(activity_list), 0)
+        np.asarray(activity_list_av.append(distance_np))
+    activity = np.mean(np.asarray(activity_list_av), 0)
+    activity_sum = np.sum(np.asarray(activity_list_av),0)
     #graph
     fig8 = plt.figure(figsize=(10, 3),tight_layout=True)
     ax8 = fig8.add_subplot(111)
@@ -308,17 +324,15 @@ def activity_analysis(dataframe_list, Hz, max_datalength):
     ax8.set_ylabel('Activity', fontsize = 32)
     plt.ylim(0, 2)
     plt.savefig('./figures/Activity.png')
-    np.savetxt('./datas/Locomotor_activity.csv', activity)
-    return activity, activity_list
+    activity_sum_np = np.insert(activity_sum, 0, 0)
+    np.savetxt('./datas/Locomotor_activity_sum.csv', activity_sum_np)
+    #np.savetxt('./datas/Locomotor_activity.csv', activity)
+    return activity, activity_list_av
 
 def position_of_neurons(dataframe_list, folderpath, filename):
-    import random
-    import numpy as np
-    from PIL import Image, ImageDraw, ImageFont
     image_path = folderpath + "/" + filename + ".png"
     image_directory = os.path.dirname(image_path)
     os.makedirs("./Neural_positions", exist_ok = True)
-    correct_value = 0.614
     for i in range(len(dataframe_list)):
         img = Image.open(image_path)
         tempdataframe = dataframe_list[i]
@@ -326,11 +340,6 @@ def position_of_neurons(dataframe_list, folderpath, filename):
         ID = tempdataframe.iloc[0]["TRACK_ID"]
         text = "ID{}".format(ID)
         draw = ImageDraw.Draw(img)
-        font = ImageFont.truetype("C:/Windows/WinSxS/amd64_microsoft"\
-                                  "-windows-font-truetype-arial_"\
-                                  "31bf3856ad364e35_10.0.18362.1"\
-                                  "_none_44e0e02b2a9382cc/arial.ttf", 14)
-        #font = ImageFont.truetype("/Library/Fonts/Microsoft/Arial.ttf")
         neuron_position = (int(position[0]/correct_value),
                            int(position[1]/correct_value))
         random_value = np.random.randint(4, 10)
@@ -360,11 +369,12 @@ def active_bout_analysis(dataframe_list,activity):
     os.makedirs("./datas/motion_bout_analysis", exist_ok= True)
     # padding (locomotion data len lost 1 data)
     locomotion_data = np.insert(activity, 0, 0)
+    np.savetxt('./datas/Locomotor_activity_ave.csv', locomotion_data)
     # calculate statistics 
     mean = float(np.mean(locomotion_data))
     std = float(np.std(locomotion_data))
     # locomotion is defined as movement is larger than 0.3 um
-    locomotion_bool = np.where(locomotion_data>0.3, True, False)
+    locomotion_bool = np.where(locomotion_data>mean+3*std, True, False)
     np.savetxt('./datas/Locomotor_bool.csv', locomotion_bool)
     # analysis_start_time = 10 means first 10sec data is not used in analysis
     analysis_start_time = 10
@@ -492,8 +502,6 @@ def execute(filepath):
     print("processing: {}".format(filename))
     #makedirectories
     makedirs(filename)
-    #get variables
-    max_datalength= ask_variables()
     #data extraction
     dataframe_list, n = data_extraction(filepath, max_datalength)
     Hz = Hz_calc(dataframe_list)
@@ -518,7 +526,6 @@ def execute(filepath):
     active_bout_analysis(dataframe_list,activity)
     correlation_among_neurons(df_for_correlation, activity)
     return meshdata, activity, activity_list
-
 
     
 def main():
@@ -551,3 +558,4 @@ plt.rcParams['ytick.labelsize'] = 24
 
 if __name__ == '__main__':
     main()
+    
