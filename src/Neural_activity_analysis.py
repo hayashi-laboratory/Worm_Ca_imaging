@@ -21,18 +21,22 @@ from tkinter import messagebox
 ####variables####
 
 # max_datalength: analyzed data length
-max_datalength = 1800
+max_datalength = 1200
 
 # spatial correction 
 correct_value = 0.614
 
-# font directory
-"""font = ImageFont.truetype("C:/Windows/WinSxS/amd64_microsoft"\
+# font path 
+if os.name == "nt":
+    font = ImageFont.truetype("C:/Windows/WinSxS/amd64_microsoft"\
                                   "-windows-font-truetype-arial_"\
                                   "31bf3856ad364e35_10.0.18362.1"\
-                                  "_none_44e0e02b2a9382cc/arial.ttf", 14)"""
-font = ImageFont.truetype("/Library/Fonts/Microsoft/Arial.ttf")
-
+                                  "_none_44e0e02b2a9382cc/arial.ttf", 14)
+elif os.name == "posix":
+    font = ImageFont.truetype("/Library/Fonts/Microsoft/Arial.ttf") 
+else:
+    messagebox.showinfo('quit', 'os is not recognized')
+    sys.exit()
 
 #####functions#####
 
@@ -152,6 +156,7 @@ def all_data_visualization(dataframe_list, Fluo_data, max_datalength, Hz):
                          temp_Fluo_data[j]["deltaF/F"], color = "black")
                 plt.xlim(0,max_datalength)
                 plt.ylim(-1, 1)
+                axi.text(900, -0.8,"ID: {}".format(temp_Fluo_data[j]["TRACK_ID"].values[0]), fontsize = 14)
             except IndexError:
                 axi.plot(np.arange(0,max_datalength), 
                          np.zeros(len(range(max_datalength))), color = "black")
@@ -278,7 +283,7 @@ def draw_heatmap(a, timeaxis, NeuroID, cmap=plt.cm.jet):
 
     metric = 'correlation'
     method = 'ward'
-    fig7, ax7 = plt.subplots(figsize=(18, 8)) 
+    fig7, ax7 = plt.subplots(figsize=(10, 8)) 
     main_axes = ax7
     #for adjust colorbar
     divider = make_axes_locatable(main_axes)
@@ -294,13 +299,13 @@ def draw_heatmap(a, timeaxis, NeuroID, cmap=plt.cm.jet):
     
     plt.sca(main_axes)
     heat = ax7.pcolormesh(timeaxis, NeuroID, a,cmap= plt.cm.jet)
-    heat.set_clim(-0.2,1.5)
+    heat.set_clim(-0.2,1)
     #imshow(a, aspect='auto', interpolation='none',cmap=cmap, vmin=-0.5, vmax=2.0)
     cbar = fig7.colorbar(heat)
-    cbar.set_label("deltaF/F", fontsize = 24)
+    cbar.set_label("deltaF/F", fontsize = 18)
     #ax7.axes.xaxis.set_ticks(timeaxis)
     ax7.axes.yaxis.set_ticks([])
-    plt.xlabel("TIme (s)",  fontsize = 24)
+    plt.xlabel("Time (s)",  fontsize = 18)
     plt.gca().xaxis.set_ticks_position('none')
     plt.gca().yaxis.set_ticks_position('none')
     plt.gca().invert_yaxis()
