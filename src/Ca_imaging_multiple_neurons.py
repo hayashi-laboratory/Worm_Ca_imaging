@@ -235,7 +235,7 @@ def Motion_island_analysis(data, bouts_starts, bouts_lengths, timeaxis):
         peak_analysis = np.vstack([columns,
                                    QM_to_peak.values,
                                    peak_to_MQ.values]).T
-        peak_analysis = pd.DataFrame(peak_analysis, columns=["ID",
+        peak_analysis = pd.DataFrame(peak_analysis, columns=["Track_ID",
                                                              "QM_to_peak",
                                                              "peak_to_MQ"]).T
         # peak to transition analysis (averaging)
@@ -246,7 +246,7 @@ def Motion_island_analysis(data, bouts_starts, bouts_lengths, timeaxis):
         peak_analysis_smth = np.vstack([columns,
                                         QM_to_peak.values,
                                         peak_to_MQ.values]).T
-        peak_analysis_smth = pd.DataFrame(peak_analysis_smth, columns=["ID",
+        peak_analysis_smth = pd.DataFrame(peak_analysis_smth, columns=["Track_ID",
                                                                        "QM_to_peak",
                                                                        "peak_to_MQ"]).T
 
@@ -256,7 +256,7 @@ def Motion_island_analysis(data, bouts_starts, bouts_lengths, timeaxis):
         peak_to_MQ = end_12sec_df["time"].iloc[-1] - end_12sec_df["time"][end_12sec_df.idxmax()]
         peak_analysis_12sec = np.vstack([columns,
                                          peak_to_MQ.values]).T
-        peak_analysis_12sec = pd.DataFrame(peak_analysis_12sec, columns=["ID",
+        peak_analysis_12sec = pd.DataFrame(peak_analysis_12sec, columns=["Track_ID",
                                                                          "peak_to_MQ"]).T
 
         # MQ tr
@@ -431,8 +431,8 @@ def main():
         os.makedirs('./Ex-{0}_date_{1}'.format(Ex_num, date), exist_ok=True)
 
         csv_data = pd.read_csv("./{}.csv".format(name_list[i]))
-        GFP_data = csv_data["MEAN_INTENSITY01"]
-        RFP_data = csv_data["MEAN_INTENSITY02"]
+        GFP_data = csv_data["MEAN_INTENSITY_CH1"]
+        RFP_data = csv_data["MEAN_INTENSITY_CH2"]
         dR_R,tracking_judge = Calculate_Fluorescence(GFP_data, RFP_data)
 
         DIC = extract_images(czi_files[i])
