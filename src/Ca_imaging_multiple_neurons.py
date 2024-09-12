@@ -2,17 +2,26 @@
 # -*- coding: utf-8 -*-
 import os
 import tkinter
-from tkinter import filedialog
-
+from tkinter import filedialog, messagebox
 import czifile
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
-
 from scipy.signal import find_peaks
-
 import datetime
+from PIL import Image, ImageDraw, ImageFont
+
+if os.name == "nt":
+    font = ImageFont.truetype("C:/Windows/WinSxS/amd4_microsoft" \
+                              "-windows-font-truetype-arial_" \
+                              "31bf3856ad364e35_10.0.18362.1" \
+                              "_none_44e0e02b2a9382cc/arial.ttf", 14)
+elif os.name == "posix":
+    font = ImageFont.truetype("/Library/Fonts/Microsoft/Arial.ttf")
+else:
+    messagebox.showinfo('quit', 'os is not recognized')
+    sys.exit()
 
 plt.rcParams['font.family'] = 'Arial'
 plt.rcParams['xtick.direction'] = 'out'
@@ -34,8 +43,8 @@ data_extract_duration_for_m_av_analysis = 5
 averaging_window_size = 0.25
 tracking_area_lower_threshold = 10
 tracking_area_upper_threshold = 100
-
-
+# spatial correction
+correct_value = 0.614
 
 
 def maxisland_start_len_mask(a, fillna_index=-1, fillna_len=0):
@@ -359,7 +368,7 @@ def Calculate_Locomotion(DIC):
     # parameter
     # threshold 1300 for 16bit data
     # 5.5 for 8bit data
-    threshold_px_val = 5.5
+    threshold_px_val = 1300
     rol_DIC = np.roll(DIC, -1, axis=0)
     subtracted_DIC = DIC - rol_DIC
     subtracted_DIC = subtracted_DIC[:-1]
@@ -407,12 +416,13 @@ def extract_images(path):
         channel_raster = img[0, :, channel, 0, :, :, 0]
         channels.append(channel_raster)
     channels = np.array(channels)
-    DIC = channels[2].astype(np.int64)
-    return DIC
+    DIC = channels[2].astype(np.int16)
+    first_img = channels[2].astype(np.int16)[0]
+    return DIC, first_img
 
 
 def Calculate_Fluorescence(GFP, RFP):
-    R_data = GFP/RFP
+    R_data = GFP / RFP
     # calc mean R
     mean_R = R_data.mean()
     # calc deltaR/R
@@ -421,32 +431,66 @@ def Calculate_Fluorescence(GFP, RFP):
     return dR_R, tracking_judge
 
 
+def position_of_neurons(dataframe, first_img):
+    first_img = np.pad(first_img, (30,30), 'constant', constant_values=255)
+    img = Image.fromarray(first_img/100)
+    img = img.convert("LA")
+    position = dataframe.iloc[0][["POSITION_X","POSITION_Y"]]
+    ID = dataframe.iloc[0]["TRACK_ID"]
+    text = "ID{}".format(ID)
+    draw = ImageDraw.Draw(img)
+    neuron_position = (int(position[0] / correct_value) + 30,
+                       int(position[1] / correct_value) + 30)
+    random_value = np.random.randint(8, 15)
+    if neuron_position[1] > img.size[1] / 2:
+        draw.line(((neuron_position[0], neuron_position[1]),
+                   (neuron_position[0], neuron_position[1] + random_value)),
+                  width=2)
+        draw.text((neuron_position[0], neuron_position[1] + random_value),
+                  text,
+                  font_size=16)
+    else:
+        draw.line(((neuron_position[0], neuron_position[1]),
+                   (neuron_position[0], neuron_position[1] - random_value)),
+                  width=2)
+        draw.text((neuron_position[0], neuron_position[1] - random_value - 11),
+                  text,
+                  font_size=16)
+    img.save("./Neuron_position_ID{0}.png".format(ID),
+             'PNG', quality=300, optimize=True)
+
+
 def main():
+    date = datetime.date.today()
     selected_dir = select_dir()
+    os.chdir(selected_dir)
     czi_files, name_list = czi_file_extraction(selected_dir)
-    os.makedirs("./figs", exist_ok=True)
     for i in range(len(czi_files)):
         Ex_num = name_list[i].split("-")[1]
-        date = datetime.date.today()
-        os.makedirs('./Ex-{0}_date_{1}'.format(Ex_num, date), exist_ok=True)
-
         csv_data = pd.read_csv("./{}.csv".format(name_list[i]))
-        GFP_data = csv_data["MEAN_INTENSITY_CH1"]
-        RFP_data = csv_data["MEAN_INTENSITY_CH2"]
-        dR_R,tracking_judge = Calculate_Fluorescence(GFP_data, RFP_data)
+        # count unique values in a column "Track_ID"
+        track_id = csv_data["TRACK_ID"].unique()
+        for temp_ID in track_id:
+            result_path = "./Ex-{0}_date_{1}/Track_ID{2}".format(Ex_num, date, temp_ID)
+            os.makedirs(result_path + "/figs", exist_ok=True)
 
-        DIC = extract_images(czi_files[i])
-        subtract_result = Calculate_Locomotion(DIC)[:len(dR_R)]
-        timeaxis = np.arange(0, len(dR_R) / 10, 0.1)
-        result = pd.DataFrame(np.vstack([timeaxis, subtract_result, dR_R, GFP_data, RFP_data,tracking_judge]).T,
-                              columns=["time", "locomotion", "dR_R", "GFP", "RFP", "tracking_judge"])
-        draw_graphs(result, name_list[i])
-        os.chdir('./Ex-{0}_date_{1}'.format(Ex_num, date))
-        result.to_csv("./{}.csv".format(name_list[i]))
-        motion_bout_detector(result)
-        os.chdir("../")
+            temp_data = csv_data[csv_data["TRACK_ID"] == temp_ID]
+            GCaMP_data = temp_data["MEAN_INTENSITY_CH1"]
+            RFP_data = temp_data["MEAN_INTENSITY_CH2"]
+            dR_R, tracking_judge = Calculate_Fluorescence(GCaMP_data, RFP_data)
+            DIC, first_img = extract_images(czi_files[i])
+            subtract_result = Calculate_Locomotion(DIC)[:len(dR_R)]
+            timeaxis = np.arange(0, len(dR_R) / 10, 0.1)
+            result = pd.DataFrame(np.vstack([timeaxis, subtract_result, dR_R, GCaMP_data, RFP_data, tracking_judge]).T,
+                                  columns=["time", "locomotion", "dR_R", "GFP", "RFP", "tracking_judge"])
+            os.chdir(result_path)
+            draw_graphs(result, f"Track_ID{temp_ID}")
+            result.to_csv("./result.csv")
+            motion_bout_detector(result)
+            # position of neurons
+            position_of_neurons(temp_data, first_img)
+            os.chdir(selected_dir)
 
 
 if __name__ == '__main__':
     main()
-
