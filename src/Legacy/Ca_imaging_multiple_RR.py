@@ -194,7 +194,7 @@ def data_extraction(csv_path, max_data_length):
     dataframe_list = []
     n = 0
     for Track_ID, dataframe in data.groupby('TRACK_ID'):
-        if len(dataframe) > max_data_length and dataframe["FRAME"].min() == 0 \
+        if len(dataframe) >= max_data_length and dataframe["FRAME"].min() == 0 \
                 and dataframe.iloc[0]["TRACK_ID"] != "None":
             dataframe_list.append(dataframe[0:max_data_length])
             n += 1
@@ -770,15 +770,15 @@ def execute_analysis(filepath, result_data_path,
                                     index=np.linspace(0, len(dataframe_list) - 1,
                                                       len(dataframe_list)),
                                     columns=timeaxis)
-        """intensity_histogram(meshdata, result_fig_path)"""
+        intensity_histogram(meshdata, result_fig_path)
         if len(ID_list) == 1:
             pass
         else:
             draw_heatmap(heatmap_data, timeaxis, NeuroID, result_fig_path,
                          cmap=plt.cm.jet)
         position_of_neurons(dataframe_list, png_path, result_fig_path)
-        """correlation_among_neurons(df_for_correlation, loc_data,
-                                  result_data_path, result_fig_path)"""
+        correlation_among_neurons(df_for_correlation, loc_data,
+                                  result_data_path, result_fig_path)
         motion_bout_detector(All_fluo_df, result_data_path,
                              result_fig_path)
     else:
