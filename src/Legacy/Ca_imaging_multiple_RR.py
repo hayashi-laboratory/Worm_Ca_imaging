@@ -31,7 +31,7 @@ from tkinter import messagebox
 
 # static variables
 # max_data_length: analyzed data length
-max_data_length =2000
+max_data_length =1900
 # spatial correction
 correct_value = 0.614
 # parameter
@@ -788,7 +788,7 @@ def execute_analysis(filepath, result_data_path,
 def main():
     root = tkinter.Tk()
     root.withdraw()
-    messagebox.showinfo('select dir', 'select dir')
+    messagebox.showinfo('select a directory containing Experiment-XX directories', 'select dir')
     path = filedialog.askdirectory()
     files = os.listdir(path)
     all_dir_names = [f for f in files if os.path.isdir(os.path.join(path, f))]

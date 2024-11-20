@@ -422,7 +422,7 @@ def extract_images(path):
 
 
 def Calculate_Fluorescence(GFP, RFP):
-    R_data = GFP / RFP
+    R_data = GFP/RFP
     # calc mean R
     mean_R = R_data.mean()
     # calc deltaR/R
