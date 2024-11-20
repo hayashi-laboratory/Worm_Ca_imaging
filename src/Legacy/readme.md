@@ -1,7 +1,7 @@
 # Calcium imaging data analysis (legacy) 
 
 ## Overview
-![Abst.png](img/Abst.png)
+![Abst.png](img/abst.png)
 This repository is for analyzing calcium imaging data in C. elegans.   
 The scripts are primarily designed for multiple neuron imaging.   
 Please note that they may cause errors when used for single neuron imaging.  
