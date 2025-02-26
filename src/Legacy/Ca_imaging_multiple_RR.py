@@ -31,7 +31,7 @@ from tkinter import messagebox
 
 # static variables
 # max_data_length: analyzed data length
-max_data_length =1900
+max_data_length =11990
 # spatial correction
 correct_value = 0.614
 # parameter
@@ -322,7 +322,7 @@ def draw_heatmap(a, timeaxis, NeuroID, result_fig_path, cmap=plt.cm.jet):
     heat.set_clim(-0.2, 1)
     # imshow(a, aspect='auto', interpolation='none',cmap=cmap, vmin=-0.5, vmax=2.0)
     cbar = fig7.colorbar(heat)
-    cbar.set_label("$\Delta$" + "F/F", fontsize=24)
+    cbar.set_label(r"$\Delta$" + "F/F", fontsize=24)
     # ax7.axes.xaxis.set_ticks(timeaxis)
     ax7.axes.yaxis.set_ticks([])
     plt.xlabel("Time (sec)", fontsize=24)
@@ -472,7 +472,7 @@ def locomotor_active_neuron_analysis(before_df, after_df, during_df, result_data
     max_differences = max_df - baseline_fluo_intensity
     # indices which neural ID above threshold
     indices_list = list(max_differences[max_differences > neural_activity_threshold].index)
-    indices_list = [i for i in indices_list if re.match("ID_\d+", i)]
+    indices_list = [i for i in indices_list if re.match(r"ID_\d+", i)]
     data_list = []
     data_list.append(during_df["time"])
     data_list.append(during_df["locomotion"])
@@ -792,7 +792,7 @@ def main():
     path = filedialog.askdirectory()
     files = os.listdir(path)
     all_dir_names = [f for f in files if os.path.isdir(os.path.join(path, f))]
-    dir_names = [s for s in all_dir_names if re.match('Experiment-\d+', s)]
+    dir_names = [s for s in all_dir_names if re.match(r"Experiment-\d+", s)]
     for folderpath in dir_names:
         os.chdir(path)
         Ex_name, csv_path, png_path, image_seq_list = dir_select(folderpath)

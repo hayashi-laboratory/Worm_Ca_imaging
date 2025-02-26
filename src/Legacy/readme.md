@@ -1,12 +1,13 @@
 # Calcium imaging data analysis (legacy) 
 
 ## Overview
-![Abst.png](img/abst.png)
+![Abst.png](./img/abst.png)
 This repository is for analyzing calcium imaging data in C. elegans.   
 The scripts are primarily designed for multiple neuron imaging.   
 Please note that they may cause errors when used for single neuron imaging.  
 ## how to use
 The analysis is divided into two main steps: using Trackmate (Fiji) and using custom-made scripts from this repository.  
+Caution: this script may not be compatible with the files in USB drive.
 
 ### raw data
 .czi (which is obtained by LSM800)
