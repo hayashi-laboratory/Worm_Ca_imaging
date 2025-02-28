@@ -33,10 +33,11 @@ Caution: this script may not be compatible with the files in USB drive.
       2. select the directory containing subdirectories whose names are Experiment-XX 
       3. save DIC image sequences to image_seq folder (use /file/save as/image sequences, png or tiff)
    2. analyzing data using custom made scripts 
-   run Ca_imaging_daga_analysis_RR.py  
-   Note: This script might give errors if there is only one track for a neuron due to the following functions:
-      - correlation_among_neurons
-      - intensity_histogram
+      1. run Ca_imaging_daga_analysis_RR.py
+      2. select the directory containing subdirectories whose names are Experiment-XX
+      Note: This script might give errors if there is only one track for a neuron due to the following functions:
+         - correlation_among_neurons
+         - intensity_histogram
 
 4. extract and summarize the data 
    1. run data_extraction.py

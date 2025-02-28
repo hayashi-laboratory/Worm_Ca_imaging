@@ -28,6 +28,11 @@ from tqdm import tqdm
 from tkinter import filedialog
 import tkinter
 from tkinter import messagebox
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.spatial.distance import pdist
+from scipy.cluster.hierarchy import linkage, dendrogram
 
 # static variables
 # max_data_length: analyzed data length
@@ -47,6 +52,9 @@ averaging_window_size = 0.25  # (sec)
 # the neuron was assigned as locomotor active neuron
 neural_activity_threshold = 0.2
 data_extract_duration_for_m_av_analysis = 5
+
+# locomotion rolling window for smoothing
+locomotion_rolling_window = 300
 
 # font path
 if os.name == "nt":
@@ -78,21 +86,24 @@ plt.rcParams["figure.dpi"] = 300
 def dir_select(folderpath):
     # select the directory which contain multiple Ex-XX
     os.chdir(folderpath)
-    # obtain experiment num, csv path
-    csv_path = [i for i in os.listdir("./") \
-                if os.path.splitext(i)[1] == '.csv']
-    if not csv_path:
-        messagebox.showinfo('cancel', 'there is no csv file in the dir')
+
+    # 正規表現を使って「Experiment-数字.csv」のパターンのみ抽出し、
+    # かつ「._」で始まらないファイルのみリストに入れる
+    csv_candidates = [
+        fname for fname in os.listdir("./")
+        if re.match(r'^Experiment-\d+\.csv$', fname)
+           and not fname.startswith("._")
+    ]
+
+    if not csv_candidates:
+        messagebox.showinfo('cancel', 'No valid csv file (Experiment-XX.csv) is found in the directory.')
         sys.exit()
-    elif len(csv_path) > 1:
-        messagebox.showinfo('cancel', 'there are multiple csv files in the dir')
+    elif len(csv_candidates) > 1:
+        messagebox.showinfo('cancel', 'Multiple valid CSV files found. Please keep only one Experiment-XX.csv.')
         sys.exit()
-    elif csv_path[0].split("-")[0] != "Experiment":
-        messagebox.showinfo('cancel', 'csv file name is not Experiment-xx')
-        sys.exit()
-    else:
-        Ex_name = csv_path[0].split(".")[0]
-        csv_path = csv_path[0]
+
+    csv_path = csv_candidates[0]
+    Ex_name = os.path.splitext(csv_path)[0]
 
     # get png path
     png_path = Ex_name + ".png"
@@ -183,6 +194,8 @@ def csv_file_read(filepath):
     base, ext = os.path.splitext(file_name)
     if ext == '.csv':
         data = pd.read_csv(filepath)
+        # ここで FRAME → TRACK_ID 順に昇順ソートする
+        data = data.sort_values(["FRAME", "TRACK_ID"], ascending=[True, True])
         return data
     else:
         return messagebox.showinfo('error',
@@ -333,6 +346,81 @@ def draw_heatmap(a, timeaxis, NeuroID, result_fig_path, cmap=plt.cm.jet):
                 format='png',
                 dpi=300,
                 bbox_inches='tight')
+
+
+def draw_heatmap_with_locomotion(a, timeaxis, NeuroID, locomotion_data, result_fig_path, cmap=plt.cm.jet):
+    """
+    Parameters:
+      a: pd.DataFrame of neural activity with shape (#neurons, #timepoints).
+         Its index should correspond to NeuroID and columns to timeaxis.
+      timeaxis: 1D array-like for time points.
+      NeuroID: 1D array-like (or list) of neuron IDs.
+      locomotion_data: 1D array-like or pd.Series with locomotion values (same length as timeaxis).
+      result_fig_path: the directory to save the output.
+      cmap: colormap for the heatmap.
+    """
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    from scipy.spatial.distance import pdist
+    from scipy.cluster.hierarchy import linkage, dendrogram
+    import pandas as pd
+
+    # フィギュアとサブプロットの作成
+    fig = plt.figure(figsize=(12, 8))
+
+    # ヒートマップ用の軸を作成（中央）
+    ax_heatmap = fig.add_axes([0.25, 0.1, 0.6, 0.6])
+
+    # デンドログラム用の軸を作成（ヒートマップの左側に接する形で）
+    ax_dendro = fig.add_axes([0.1, 0.1, 0.15, 0.6])
+
+    # カラーバー用の軸を作成（ヒートマップの右側）
+    ax_colorbar = fig.add_axes([0.86, 0.1, 0.03, 0.6])
+
+    # ロコモーション用の軸を作成（ヒートマップの下部、同じ幅で）
+    ax_loc = fig.add_axes([0.25, 0.01, 0.6, 0.08])
+
+    # デンドログラムの計算と描画
+    ylinkage = linkage(pdist(a, metric='correlation'), method='ward', metric='correlation')
+    dendrogram(ylinkage, orientation='left', no_labels=True, ax=ax_dendro)
+    ax_dendro.set_xticks([])
+    ax_dendro.set_yticks([])
+    for spine in ax_dendro.spines.values():
+        spine.set_visible(False)
+    ax_dendro.set_facecolor('none')
+
+    # ヒートマップの描画
+    heat = ax_heatmap.pcolormesh(timeaxis, NeuroID, a, cmap=cmap)
+    heat.set_clim(-0.2, 1)
+    ax_heatmap.set_yticks([])  # 縦軸の目盛りを非表示
+    # Neuron IDラベルを削除（ylabel設定を省略）
+    ax_heatmap.grid(False)
+
+    # ヒートマップとlocomotionプロットの横軸を同期
+    ax_heatmap.set_xlim(timeaxis[0], timeaxis[-1])
+    ax_loc.set_xlim(timeaxis[0], timeaxis[-1])
+
+    # ヒートマップの下部x軸ラベルを非表示（locomotionプロットと重複防止）
+    ax_heatmap.tick_params(axis='x', labelbottom=False)
+
+    # カラーバーの追加
+    cb = fig.colorbar(heat, cax=ax_colorbar)
+    cb.set_label("delta R/R0", fontsize=12)
+
+    # ロコモーションデータの平滑化と描画
+    if isinstance(locomotion_data, pd.Series):
+        smoothed_loc = locomotion_data.rolling(window=100, center=True, min_periods=1).mean()
+    else:
+        smoothed_loc = pd.Series(locomotion_data).rolling(window=100, center=True, min_periods=1).mean()
+
+    ax_loc.plot(timeaxis, smoothed_loc, color='black')
+    ax_loc.set_xlabel("Time (sec)", fontsize=12)
+    ax_loc.set_ylabel("Locomotion", fontsize=12)
+    ax_loc.grid(False)
+
+    plt.savefig(result_fig_path + '/Activity_and_dendrogram.png',
+                format='png', dpi=300, bbox_inches='tight')
+    plt.show()
 
 
 def position_of_neurons(dataframe_list, png_path, result_fig_path):
@@ -774,8 +862,13 @@ def execute_analysis(filepath, result_data_path,
         if len(ID_list) == 1:
             pass
         else:
-            draw_heatmap(heatmap_data, timeaxis, NeuroID, result_fig_path,
-                         cmap=plt.cm.jet)
+            locomotion_data = All_fluo_df.loc[:, "locomotion"].values
+            draw_heatmap_with_locomotion(heatmap_data,
+                                         timeaxis,
+                                         NeuroID,
+                                         locomotion_data,
+                                         result_fig_path,
+                                         cmap=plt.cm.jet)
         position_of_neurons(dataframe_list, png_path, result_fig_path)
         correlation_among_neurons(df_for_correlation, loc_data,
                                   result_data_path, result_fig_path)
